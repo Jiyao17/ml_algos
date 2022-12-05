@@ -16,4 +16,4 @@ GD(SGD)\
 SGD\
 Proximal GD\
 Stocastic Proximal GD\
-Adam\
+Adam

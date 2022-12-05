@@ -1,4 +1,4 @@
-# ML_Algos
+# ML Algorithm Practice
 Mannual implementation of some optimizers.
 
 # Neural Network:

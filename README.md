@@ -1,4 +1,4 @@
-# ml_algos
+# ML_Algos
 Mannual implementation of some optimizers.
 
 # Neural Network:

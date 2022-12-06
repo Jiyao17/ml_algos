@@ -6,15 +6,17 @@ import numpy as np
 
 
 class DenseNet:
-    def __init__(self, ):
+    def __init__(self, loc=0, scale=0.1):
+        self.loc = loc
+        self.scale = scale
         # 3-layer dense network for MNIST
         # include all intermediate variables
-        self.W1 = np.random.normal(0, 0.01, size=(784, 64))
-        self.b1 = np.random.normal(0, 0.01, size=(64, 1))
+        self.W1 = np.random.normal(self.loc, self.scale, size=(784, 64))
+        self.b1 = np.random.normal(self.loc, self.scale, size=(64, 1))
         self.z1: np.ndarray = None # bs x 64
         self.a1: np.ndarray = None # bs x 64
-        self.W2 = np.random.normal(0, 0.01, size=(64, 10))
-        self.b2 = np.random.normal(0, 0.01, size=(10, 1))
+        self.W2 = np.random.normal(self.loc, self.scale, size=(64, 10))
+        self.b2 = np.random.normal(self.loc, self.scale, size=(10, 1))
         self.z2: np.ndarray = None # bs x 10
 
         self.layer1 = { "weight": self.W1, "bias": self.b1, "result": self.z1, "activation": self.a1 }
@@ -33,9 +35,9 @@ class DenseNet:
         # flatten the input
         batch_size = X.shape[0]
         if self.z1 is None or self.z1.shape[0] != batch_size:
-            self.z1 = np.random.normal(0, 0.01, size=(batch_size, 64))
-            self.a1 = np.random.normal(0, 0.01, size=(batch_size, 64))
-            self.z2 = np.random.normal(0, 0.01, size=(batch_size, 10))
+            self.z1 = np.random.normal(self.loc, self.scale, size=(batch_size, 64))
+            self.a1 = np.random.normal(self.loc, self.scale, size=(batch_size, 64))
+            self.z2 = np.random.normal(self.loc, self.scale, size=(batch_size, 10))
             self.layer1["result"] = self.z1
             self.layer1["activation"] = self.a1
             self.layer2["result"] = self.z2
@@ -52,4 +54,18 @@ class DenseNet:
         # loss = -np.sum(np.log(z2[np.arange(batch_size), y])) / batch_size
         return pred
 
+    def get_norm(self):
+        norm = 0
+        for layer in self.layers:
+            norm += np.sum(layer["weight"] ** 2)
+            norm += np.sum(layer["bias"] ** 2)
+        return norm
 
+    def get_ranks(self):
+        """
+        rank of each weight
+        """
+        ranks = []
+        for layer in self.layers:
+            ranks.append(np.linalg.matrix_rank(layer["weight"]))
+        return ranks

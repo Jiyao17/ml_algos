@@ -186,7 +186,9 @@ class ProxSGD_LR(Optimizer):
                     u, s, v = np.linalg.svd(weight, full_matrices=False)
                     threshold = self.lams[i] * self.lr * 1000
                     s = np.where(s > threshold, s - threshold, 0)
-                    layer['weight'] += self.lams[i] * np.dot(u, np.dot(np.diag(s), v))
+                    s = np.diag(s)
+                    layer['weight'] = np.dot(u, np.dot(s, v))
+                    # layer['weight'] += self.lams[i] * np.dot(u, np.dot(np.diag(s), v))
                     
                     # U, sigma, V = np.linalg.svd(L, 0)
                     # L_thr = lr_L * tau
@@ -211,23 +213,54 @@ class ADMM(Optimizer):
             weight = np.zeros_like(layer['weight'])
             bias = np.zeros_like(layer['bias'])
             self.z.append({'weight': weight, 'bias': bias})
+
+            weight = np.zeros_like(layer['weight'])
+            bias = np.zeros_like(layer['bias'])
             self.u.append({'weight': weight, 'bias': bias})
 
     def update(self, labels: np.ndarray) -> np.ndarray:
+        def soft_thresholding(x: np.ndarray, lam: float) -> np.ndarray:
+            return np.sign(x) * np.maximum(np.abs(x) - lam, 0)
+            
+        layers = self.net.layers
         grad = self.grad(labels)
-        # add l2 norm regularization
+        # l2 norm regularization
+        norm = deepcopy(grad)
+        for i, layer in enumerate(norm):
+            layer['weight'] = self.lam * self.net.layers[i]['weight']
+            layer['bias'] = self.lam * self.net.layers[i]['bias']
+
+        # calculate gradient with ADMM
         for i, layer in enumerate(grad):
-            layer['weight'] += self.lam * self.net.layers[i]['weight']
-            layer['bias'] += self.lam * self.net.layers[i]['bias']
+            grad[i]['weight'] += self.rho * (layers[i]['weight'] - self.z[i]['weight'] + self.u[i]['weight'])
+            grad[i]['bias'] += self.rho * (layers[i]['bias'] - self.z[i]['bias'] + self.u[i]['bias'])
 
         # update z
-        for i, layer in enumerate(grad):
-            self.z[i]['weight'] += self.rho * (self.net.layers[i]['weight'] + self.u[i]['weight'])
-            self.z[i]['bias'] += self.rho * (self.net.layers[i]['bias'] + self.u[i]['bias'])
+        for i, layer in enumerate(self.z):
+            self.z[i]['weight'] = soft_thresholding(layers[i]['weight'] + self.u[i]['weight'], self.lam / self.rho)
+            self.z[i]['bias'] = soft_thresholding(layers[i]['bias'] + self.u[i]['bias'], self.lam / self.rho)
 
         # update u
+        for i, layer in enumerate(self.u):
+            self.u[i]['weight'] += layers[i]['weight'] - self.z[i]['weight']
+            self.u[i]['bias'] += layers[i]['bias'] - self.z[i]['bias']
+
+            
+
+        # layers[0]['weight'] = np.dot(X_pinv,layers[0]['result'])
+        # layers[0]['activation'] = np.dot((np.dot(layers[1]['result'],layers[1]['weight'].T) + self.net.sigmoid(layers[0]['result'])),np.linalg.inv((np.dot(layers[1]['weight'],layers[1]['weight'].T)+np.eye(64))))
+        # grad_z2 = -2*(layers[0]['activation'] - sigmoid(layers[0]['result'])) * sigmoid(layers[0]['result'])*(1-sigmoid(layers[0]['result'])) + 2*(layers[0]['result']-np.dot(self.net.forward_data,layers[0]['weight']))
+        # layers[0]['result'] = layers[0]['result'] - self.lr*grad_z2
+        
+        # #update layer2
+        # layers[1]['weight'] = np.dot(np.linalg.pinv(layers[0]['activation']),layers[1]['output'])
+        # grad_z3 = (pred-labels) + self.lam + 2*(layers[1]['output']-np.dot(layers[0]['activation'],layers[1]['weight']))
+        # layers[1]['output'] = layers[1]['output'] - self.lr*grad_z3
+        # lamb += lam*(layers[1]['output']-np.dot(layers[0]['activation'],layers[1]['weight']))   
+            
+        # add l2 norm regularization
         for i, layer in enumerate(grad):
-            self.u[i]['weight'] += self.net.layers[i]['weight'] - self.z[i]['weight']
-            self.u[i]['bias'] += self.net.layers[i]['bias'] - self.z[i]['bias']
+            grad[i]['weight'] += norm[i]['weight']
+            grad[i]['bias'] += norm[i]['bias']
 
         return grad

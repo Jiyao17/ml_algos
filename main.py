@@ -26,7 +26,7 @@ def main(optim_type=OptimType.SGD):
     elif optim_type == OptimType.ProxSGD_LR:
         optim = ProxSGD_LR(net, lr=0.01)
     elif optim_type == OptimType.ADMM:
-        optim = ADMM(net, lr=0.01, lam=0.1, rho=0.1)
+        optim = ADMM(net, lr=0.01, lam=0.01, rho=0.01)
     else:
         raise NotImplementedError
     # optim = SGD(net, lr=0.01, lam=0.1)
